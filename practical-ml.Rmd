@@ -5,7 +5,7 @@ date: "July 25, 2015"
 output: html_document
 ---
 #Executive Summary
-The intent of this project is to predict the method in which exercises were performed for six participants performing barbell lifts. There are a total of five methods of performance; one correct method and four incorrect methods. Accelerometer data was collected from the belt, forearm, arm, and dumbbell during the lifts. The following is a data procedure to clean and explore the data, and then build a classification model using Random Forest methods to predict greater than 99% accuracy with less than 1% chance of Out of Sample Error. To view the resulting html file go here: http://rpubs.com/manlike_fox/95565
+The intent of this project is to predict the method in which exercises were performed for six participants performing barbell lifts. There are a total of five methods of performance; one correct method and four incorrect methods. Accelerometer data was collected from the belt, forearm, arm, and dumbbell during the lifts. The following is a data procedure to clean and explore the data, and then build a classification model using the Random Forest method to predict greater than 99% accuracy with less than 1% chance of Out of Sample Error. To view the resulting html file go here: http://rpubs.com/manlike_fox/95565
 
 ##Downloading and Importing Data
 Locate the data files
@@ -13,6 +13,7 @@ Locate the data files
 trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 ```
+Background information on the data files: http://groupware.les.inf.puc-rio.br/har
 
 Import and structure missing data  
 **Note: It is important that missing values are handled in a consistent manner and that "NA", "#DIV/0!", and "" are all NA values.**
@@ -24,21 +25,19 @@ test <- read.csv(url(testUrl), na.strings=c("NA",""))
 Look at the dimensions of training data set
 ```{r echo =F, cache =T}
 dim(train)
-rm(trainUrl, testUrl)
 ```
 
-##Data Wrangling
+##Data Wrangling (variable selection)
 Determine which variables should be kept for the model by removing columns that have missing values and removing columns that are factor variables such as `user_name`. Also, removing variables related to the timestamp of the observation.
-
 ```{r echo =T, cache=T}
 train <- train[,!sapply(train, function(x) any(is.na(x)))]
 train <- train[,!sapply(train[,-60], function(x) any(is.factor(x)))]
 train <- train[,-c(1:4)]
 
-dim(train)
+dim(train) ## look
 ```
 
-Examine a common measurement captured by the four accelerometers to explore potential relationships. This example covers the `total_accel` feature. Grouping by the `classe` variable, a boxplot shows a few subtle differences.
+Examining a common measurement captured by the four accelerometers to explore potential relationships. This example covers the `total_accel` feature. Grouping by the `classe` variable, a boxplot shows a few subtle differences.
 ```{r echo =T, cache =T}
 library(dplyr)
 library(tidyr)
@@ -57,8 +56,7 @@ qplot(x = classe, y = value
 #Building a Machine Learning Model
 
 ##Creating Training and Validation sets
-To train our model we have created a partition using 70% of the training data to fit the mode. The remaining data will be used as validation for the model.
-
+To train our model we have created a partition using 70% of the training data. The remaining data will be used as validation and determining the Out of Sample error.
 ```{r echo =T, cache =T, message =F}
 library(caret)
 library(AppliedPredictiveModeling)
@@ -67,15 +65,15 @@ set.seed(88)
 
 ## setup sets
 ourTrain <- createDataPartition(y = train$classe , p = .70, list =F)
-training <- train[ ourTrain,]
-validating <- train[ -ourTrain,]
+training <- train[ ourTrain,] ## create 1st partition
+validating <- train[ -ourTrain,] ## create 2nd partition
 
-dim(training)
-dim(validating)
+dim(training) ## look
+dim(validating) ## look
 ```
 
 ##Fit the Model
-
+Using the `caret` package is simple to experiment with different machine learning algorithms. The Random Forest method was chosen after researching algorithms specifically designed for classification. Random Forest uses a native bootstrap sampling method to migitigate potential overfitting for unseen data. Source: https://en.wikipedia.org/wiki/Random_forest
 ```{r echo =T, cache =T, message =F, warning =F}
 library(dplyr)
 
@@ -87,21 +85,36 @@ fit <- train(x = data, y = classe
 print(fit$finalModel)
 ```
 
-#Conclusion
+Random Forest calculated the Out of Bag (OOB) rate above at 0.7%, which is below the original threshold set in the Executive Summary.
+
+##Validation
+ The following procedure will look to uncover error rates for unforeseen data in the `validating` data set 
 ```{r echo =T, cache =T, eval =T}
 predicts <- predict(fit, validating[,1:52])
 confusionMatrix(predicts, validating$classe)
 ```
-
-
+##Results
+The prediction shows 99.24% accuracy, which can be broken down by class and is shown visually below:
 ```{r echo =T, cache =T}
-ggplot(fit)
+looks <- confusionMatrix(predicts, validating$classe)[4]
+viz <- as.data.frame(looks) %>% select(1:4, 8)%>% gather(var, value)
+viz$classe <- rep(c("A","B","C","D","E"), 5)
+levels(viz$var) <- c("Sensitivity", "Specificity", "Pos Pred Value", "Neg Pred Value", "Balance Accuracy")
+qplot(x = var, y = value
+      , data = viz
+      , color = classe
+      , main = "Prediction Accuracy Measures by Class"
+      , ylab = "Accuracy"
+      , xlab = "Measures")
 ```
 
-##Results
+##Conclusion
+The Random Forest method proved to be a great method for this classification problem. The model does such a good job right out of the box that it was not necessary for further fine-tuning. There is room for performance fine-tuning using parallel resources; however, that was not in the scope of this project.
 
+#Submissions
+The following is the procedure for applying the model to the test data sets to extract the submission files.
 ###Reciprocal PreProcessing to the Test Set
-```{r echo =T, cache =T, eval =T}
+```{r echo =T, cache =T, eval =F}
 test <- test[,!sapply(test, function(x) any(is.na(x)))]
 test <- test[,!sapply(test[,-60], function(x) any(is.factor(x)))]
 test <- test[,-c(1:4)]
@@ -116,7 +129,6 @@ library(dplyr)
 predictions <- predict(fit, newdata = test[,1:52])
 print(predictions)
 ```
-
 ```{r eval =F}
 pml_write_files = function(x){
   n = length(x)
