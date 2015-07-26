@@ -5,7 +5,7 @@ date: "July 25, 2015"
 output: html_document
 ---
 #Executive Summary
-The intent of this project is to predict the method in which exercises were performed for six participants performing barbell lifts. There are a total of five methods of performance; one correct method and four incorrect methods. Accelerometer data was collected from the belt, forearm, arm, and dumbbell during the lifts. The following is a data procedure to clean and explore the data, and then build a classification model using Random Forest methods to predict greater than 99% accuracy with less than 1% chance of Out of Sample Error.
+The intent of this project is to predict the method in which exercises were performed for six participants performing barbell lifts. There are a total of five methods of performance; one correct method and four incorrect methods. Accelerometer data was collected from the belt, forearm, arm, and dumbbell during the lifts. The following is a data procedure to clean and explore the data, and then build a classification model using Random Forest methods to predict greater than 99% accuracy with less than 1% chance of Out of Sample Error. To view the resulting html file go here: http://rpubs.com/manlike_fox/95565
 
 ##Downloading and Importing Data
 Locate the data files
