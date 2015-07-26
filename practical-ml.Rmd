@@ -1,0 +1,130 @@
+---
+title: "Activity Classifications using Practical Machine Learning"
+author: "Bill Felix"
+date: "July 25, 2015"
+output: html_document
+---
+#Executive Summary
+The intent of this project is to predict the method in which exercises were performed for six participants performing barbell lifts. There are a total of five methods of performance; one correct method and four incorrect methods. Accelerometer data was collected from the belt, forearm, arm, and dumbbell during the lifts. The following is a data procedure to clean and explore the data, and then build a classification model using Random Forest methods to predict greater than 99% accuracy with less than 1% chance of Out of Sample Error.
+
+##Downloading and Importing Data
+Locate the data files
+```{r echo =T, cache =T}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+Import and structure missing data  
+**Note: It is important that missing values are handled in a consistent manner and that "NA", "#DIV/0!", and "" are all NA values.**
+```{r echo =T, cache =T}
+train <- read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+test <- read.csv(url(testUrl), na.strings=c("NA",""))
+```
+
+Look at the dimensions of training data set
+```{r echo =F, cache =T}
+dim(train)
+rm(trainUrl, testUrl)
+```
+
+##Data Wrangling
+Determine which variables should be kept for the model by removing columns that have missing values and removing columns that are factor variables such as `user_name`. Also, removing variables related to the timestamp of the observation.
+
+```{r echo =T, cache=T}
+train <- train[,!sapply(train, function(x) any(is.na(x)))]
+train <- train[,!sapply(train[,-60], function(x) any(is.factor(x)))]
+train <- train[,-c(1:4)]
+
+dim(train)
+```
+
+Examine a common measurement captured by the four accelerometers to explore potential relationships. This example covers the `total_accel` feature. Grouping by the `classe` variable, a boxplot shows a few subtle differences.
+```{r echo =T, cache =T}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+t_accel <- train %>% select(classe, starts_with("total")) %>%
+    gather(feature, value, -classe)
+
+qplot(x = classe, y = value
+      , data = t_accel
+      , geom = c("boxplot")
+      , fill = feature
+      , main = "Comparison of Each Total Accel by Classe")
+```
+
+#Building a Machine Learning Model
+
+##Creating Training and Validation sets
+To train our model we have created a partition using 70% of the training data to fit the mode. The remaining data will be used as validation for the model.
+
+```{r echo =T, cache =T, message =F}
+library(caret)
+library(AppliedPredictiveModeling)
+
+set.seed(88)
+
+## setup sets
+ourTrain <- createDataPartition(y = train$classe , p = .70, list =F)
+training <- train[ ourTrain,]
+validating <- train[ -ourTrain,]
+
+dim(training)
+dim(validating)
+```
+
+##Fit the Model
+
+```{r echo =T, cache =T, message =F, warning =F}
+library(dplyr)
+
+data <- training[,1:52]
+classe <- training$classe
+
+fit <- train(x = data, y = classe
+             , method = "rf")
+print(fit$finalModel)
+```
+
+#Conclusion
+```{r echo =T, cache =T, eval =T}
+predicts <- predict(fit, validating[,1:52])
+confusionMatrix(predicts, validating$classe)
+```
+
+
+```{r echo =T, cache =T}
+ggplot(fit)
+```
+
+##Results
+
+###Reciprocal PreProcessing to the Test Set
+```{r echo =T, cache =T, eval =T}
+test <- test[,!sapply(test, function(x) any(is.na(x)))]
+test <- test[,!sapply(test[,-60], function(x) any(is.factor(x)))]
+test <- test[,-c(1:4)]
+
+dim(test)
+```
+
+####Writing Out Submission Documents
+```{r echo =T, message =F, eval =F}
+library(dplyr)
+
+predictions <- predict(fit, newdata = test[,1:52])
+print(predictions)
+```
+
+```{r eval =F}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("./answers/problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictions)
+```
